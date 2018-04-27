@@ -12,7 +12,7 @@ import numpy as np
 
 def lstm_cell():
 	global lstm_size
-	lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size, reuse=tf.get_variable_scope().reuse)
+	lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size, reuse=True)#tf.get_variable_scope().reuse)
 	return tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob=keep_prob)
 
 def getBatches(x, y, batchSize=100):
