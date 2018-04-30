@@ -89,8 +89,8 @@ with open('./data/train.pkl', 'rb') as train:
 	#LSTM paramerters
 	lstm_size = 256
 	lstm_layers = 2
-	batchSize = 200
-	learningRate = 0.02
+	batchSize = 500
+	learningRate = 0.01
 	dictFile = open('./data/dictionary.pkl', 'rb')
 	nWords = pickle.load(dictFile)
 	n_words = len(nWords) + 1 # add 1 for 0 added to the vocabulary
@@ -102,7 +102,7 @@ with open('./data/train.pkl', 'rb') as train:
 		labels_ = tf.placeholder(tf.int32, [None, None], name="labels")
 		keep_prob = tf.placeholder(tf.float32, name="keep_prob")
 
-	embed_size = 600
+	embed_size = 900
 	with tf.name_scope("Embeddings"):
 		embedding = tf.Variable(tf.random_uniform((n_words, embed_size), -1, 1))
 		embed = tf.nn.embedding_lookup(embedding, inputs_)
@@ -159,21 +159,20 @@ with open('./data/train.pkl', 'rb') as train:
 					print("Epoch: {}/{}".format(e, epochs),
 						  "Iteration: {}".format(iteration),
 						  "Train loss: {:.3f}".format(loss))
-
-				if iteration%25==0:
-					val_acc = []
-					val_state = sess.run(cell.zero_state(batchSize, tf.float32))
-					# checkpoint
-					for x, y in get_batches(val_x, val_y, batchSize):
-						feed = {inputs_: x,
-								labels_: y[:],
-								keep_prob: 1,
-								initial_state: val_state}
-	#                     batch_acc, val_state = sess.run([accuracy, final_state], feed_dict=feed)
-						summary, batch_acc, val_state = sess.run([merged, accuracy, final_state], feed_dict=feed)
-						val_acc.append(batch_acc)
-					print("Val acc: {:.3f}".format(np.mean(val_acc)))
 				iteration +=1
-				test_writer.add_summary(summary, iteration)
-				saver.save(sess, "checkpoints/sentiment.ckpt")
+			val_acc = []
+			val_state = sess.run(cell.zero_state(batchSize, tf.float32))
+			# checkpoint
+			for x, y in get_batches(val_x, val_y, batchSize):
+				feed = {inputs_: x,
+						labels_: y[:],
+						keep_prob: 1,
+						initial_state: val_state}
+#                     batch_acc, val_state = sess.run([accuracy, final_state], feed_dict=feed)
+				summary, batch_acc, val_state = sess.run([merged, accuracy, final_state], feed_dict=feed)
+				val_acc.append(batch_acc)
+			print("Val acc: {:.3f}".format(np.mean(val_acc)))
+
+			test_writer.add_summary(summary, iteration)
+			saver.save(sess, "checkpoints/sentiment.ckpt")
 		saver.save(sess, "checkpoints/sentiment.ckpt")
