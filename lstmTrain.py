@@ -64,6 +64,7 @@ with open('./data/train.pkl', 'rb') as train:
 	parser.add_argument('-lr', type=float, dest='lr', default=0.02)
 	parser.add_argument('-ntype', type=str, dest='ntype', default='lstm')
 	parser.add_argument('-optimizer', type=str, dest='opt', default='adam')
+	parser.add_argument('-epoch', type=int, dest='epoch', default=10)
 	args = parser.parse_args()
 
 	useSGD = (args.opt == 'sgd')
@@ -72,6 +73,7 @@ with open('./data/train.pkl', 'rb') as train:
 	lstm_layers = args.numLayers
 	batchSize = args.batchSize
 	learningRate = args.lr
+	epochs = args.epoch
 
 	config = memoryNDtype + '_' + str(lstm_size) + 'u_' + str(lstm_layers) + 'l_' + str(batchSize) + 'b_' + args.opt + '_' + str(learningRate) + 'lr'
 	print (config)
@@ -173,8 +175,6 @@ with open('./data/train.pkl', 'rb') as train:
 	with tf.name_scope('validation'):
 		correct_pred = tf.equal(tf.cast(tf.round(predictions), tf.int32), labels_)
 		accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-
-	epochs = 10
 
 	saver = tf.train.Saver()
 
