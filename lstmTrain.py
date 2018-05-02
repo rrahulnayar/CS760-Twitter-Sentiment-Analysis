@@ -60,7 +60,7 @@ with open('./data/train.pkl', 'rb') as train:
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-units', type=int, dest='numUnits', default=256)
 	parser.add_argument('-layers', type=int, dest='numLayers', default=2)
-	parser.add_argument('-batch', type=int, dest='batchSize', default=200)
+	parser.add_argument('-batch', type=int, dest='batchSize', default=100)
 	parser.add_argument('-lr', type=float, dest='lr', default=0.02)
 	parser.add_argument('-ntype', type=str, dest='ntype', default='lstm')
 	parser.add_argument('-optimizer', type=str, dest='opt', default='adam')
@@ -76,6 +76,13 @@ with open('./data/train.pkl', 'rb') as train:
 	epochs = args.epoch
 
 	config = memoryNDtype + '_' + str(lstm_size) + 'u_' + str(lstm_layers) + 'l_' + str(batchSize) + 'b_' + args.opt + '_' + str(learningRate) + 'lr'
+
+	logFile = config + '_log.txt'
+	fpLog = open(logFile, 'w')
+
+	lossFile = config + '_loss.txt'
+	fpLoss = open(lossFile, 'w')
+
 	print (config)
 	if not os.path.exists(config):
 		os.makedirs(config)
@@ -126,7 +133,7 @@ with open('./data/train.pkl', 'rb') as train:
 		labels_ = tf.placeholder(tf.int32, [None, None], name="labels")
 		keep_prob = tf.placeholder(tf.float32, name="keep_prob")
 
-	embed_size = 900
+	embed_size = 512
 	with tf.name_scope("Embeddings"):
 		embedding = tf.Variable(tf.random_uniform((n_words, embed_size), -1, 1))
 		embed = tf.nn.embedding_lookup(embedding, inputs_)
@@ -195,14 +202,14 @@ with open('./data/train.pkl', 'rb') as train:
 				if memoryNDtype == 'blstm':
 					feed = {inputs_: x,
 	                        labels_: y[:],
-							keep_prob: 1,
+							keep_prob: 0.5,
 							initialStateFw: stateFw,
 							initialStateBw: stateBw}
 					summary, loss, stateFw, stateBw, _ = sess.run([merged, cost, final_state[0], final_state[1], optimizer], feed_dict=feed)
 				else:
 					feed = {inputs_: x,
 	                        labels_: y[:],
-							keep_prob: 1,
+							keep_prob: 0.5,
 							initial_state: state}
 
 					summary, loss, state, _ = sess.run([merged, cost, final_state, optimizer], feed_dict=feed)
@@ -213,6 +220,9 @@ with open('./data/train.pkl', 'rb') as train:
 					print("Epoch: {}/{}".format(e, epochs),
 						  "Iteration: {}".format(iteration),
 						  "Train loss: {:.3f}".format(loss))
+					lsstr = "Epoch: " + "{}/{}".format(e, epochs) + "Iteration: "+"{}".format(iteration) + "Train loss: " + "{:.3f}".format(loss) + '\n'
+					fpLoss.write(lsstr)
+
 				iteration +=1
 			val_acc = []
 
@@ -239,7 +249,37 @@ with open('./data/train.pkl', 'rb') as train:
 					summary, batch_acc, val_state = sess.run([merged, accuracy, final_state], feed_dict=feed)
 				val_acc.append(batch_acc)
 			print("Val acc: {:.3f}".format(np.mean(val_acc)))
+			logStr = 'Itr ' + str(e+1) + ' Val acc: ' + "{:.3f}".format(np.mean(val_acc)) + '\n'
+			fpLog.write(logStr)
 
 			test_writer.add_summary(summary, iteration)
 			saver.save(sess, "checkpoints/sentiment.ckpt")
 		saver.save(sess, "checkpoints/sentiment.ckpt")
+
+		test_acc = []
+		with tf.Session() as sess:
+			saver.restore(sess, "checkpoints/sentiment.ckpt")
+			if memoryNDtype == 'blstm':
+				stateFwVal = sess.run(initialStateFw)
+				stateBwVal = sess.run(initialStateBw)
+				for ii, (x, y) in enumerate(get_batches(test_x, test_y, batchSize), 1):
+					feed = {inputs_: x,
+							labels_: y[:],
+							keep_prob: 1,
+							initialStateFw: stateFwVal,
+							initialStateBw: stateBwVal}
+					batch_acc, test_state = sess.run([accuracy, final_state[0], final_state[1]], feed_dict=feed)
+					test_acc.append(batch_acc)
+			else:
+				test_state = sess.run(cell.zero_state(batchSize, tf.float32))
+				for ii, (x, y) in enumerate(get_batches(test_x, test_y, batchSize), 1):
+					feed = {inputs_: x,
+					labels_: y[:],
+					keep_prob: 1,
+					initial_state: test_state}
+					batch_acc, test_state = sess.run([accuracy, final_state], feed_dict=feed)
+					test_acc.append(batch_acc)
+				print("Test accuracy: {:.3f}".format(np.mean(test_acc)))
+				logStr = 'Test acc: ' + "{:.3f}".format(np.mean(test_acc)) + '\n'
+				fpLog.write(logStr)
+		fpLog.close()
