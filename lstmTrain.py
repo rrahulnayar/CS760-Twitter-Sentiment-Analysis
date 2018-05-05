@@ -74,6 +74,8 @@ with open('./data/train.pkl', 'rb') as train:
 	batchSize = args.batchSize
 	learningRate = args.lr
 	epochs = args.epoch
+	lrDecayStep = 1
+	lrDecayRate = 0.8
 
 	config = memoryNDtype + '_' + str(lstm_size) + 'u_' + str(lstm_layers) + 'l_' + str(batchSize) + 'b_' + args.opt + '_' + str(learningRate) + 'lr'
 
@@ -110,6 +112,12 @@ with open('./data/train.pkl', 'rb') as train:
 	print ('Train Size ', train_x.shape)
 	print ('Val Size', val_x.shape)
 	print ('Test Size ', test_x.shape)
+
+	#shuffle data
+	p = np.random.permutation(len(train_x))
+	train_x = train_x[p]
+	train_y = train_y[p]
+
 	# Number of Words
 	# nWords = {}
 	# for i in dataTrain[0]:
@@ -172,10 +180,15 @@ with open('./data/train.pkl', 'rb') as train:
 		tf.summary.scalar('cost', cost)
 
 	with tf.name_scope('train'):
-		if useSGD:
-			optimizer = tf.train.MomentumOptimizer(learningRate, momentum=0.9,use_nesterov=True).minimize(cost)
-		else:
-			optimizer = tf.train.AdamOptimizer(learningRate).minimize(cost)
+		global_step = tf.Variable(0, trainable=False)
+		lrDecayStep = lrDecayStep * (train_x.shape[0]/batchSize)
+		learning_rate = tf.train.exponential_decay(learningRate, global_step, lrDecayStep, lrDecayRate, staircase=True)
+		extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+		with tf.control_dependencies(extra_update_ops):
+			if useSGD:
+				optimizer = tf.train.MomentumOptimizer(learning_rate, momentum=0.9,use_nesterov=True).minimize(cost, global_step = global_step)
+			else:
+				optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost, global_step = global_step)
 
 	merged = tf.summary.merge_all()
 
