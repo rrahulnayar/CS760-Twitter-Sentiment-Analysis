@@ -180,17 +180,23 @@ with open('./data/train.pkl', 'rb') as train:
 	merged = tf.summary.merge_all()
 
 	with tf.name_scope('validation'):
-		correct_pred = tf.equal(tf.cast(tf.round(predictions), tf.int32), labels_)
+		rPrediction = tf.cast(tf.round(predictions), tf.int32)
+		correct_pred = tf.equal(rPrediction, labels_)
 		accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+		acc, acc_op = tf.metrics.accuracy(labels=labels_, predictions=rPrediction)
+		rec, rec_op = tf.metrics.recall(labels=labels_, predictions=rPrediction)
+		pre, pre_op = tf.metrics.precision(labels=labels_, predictions=rPrediction)
 
 	saver = tf.train.Saver()
 
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())
+
 		train_writer = tf.summary.FileWriter('./log/tb/train', sess.graph)
 		test_writer = tf.summary.FileWriter('./log/tb/test', sess.graph)
 		iteration = 1
 		for e in range(epochs):
+			sess.run(tf.local_variables_initializer())
 			if memoryNDtype == 'blstm':
 				stateFw = sess.run(initialStateFw)
 				stateBw = sess.run(initialStateBw)
@@ -239,18 +245,20 @@ with open('./data/train.pkl', 'rb') as train:
 							keep_prob: 1,
 							initialStateFw: stateFwVal,
 							initialStateBw: stateBwVal}
-					summary, batch_acc, stateFwVal,stateBwVal  = sess.run([merged, accuracy, final_state[0], final_state[1]], feed_dict=feed)
+					summary, batch_acc, stateFwVal,stateBwVal, prec, recall, accr  = sess.run([merged, accuracy, final_state[0], final_state[1], pre_op,rec_op, acc_op], feed_dict=feed)
 				else:
 					feed = {inputs_: x,
 							labels_: y[:],
 							keep_prob: 1,
 							initial_state: val_state}
 #                     batch_acc, val_state = sess.run([accuracy, final_state], feed_dict=feed)
-					summary, batch_acc, val_state = sess.run([merged, accuracy, final_state], feed_dict=feed)
+					summary, batch_acc, val_state, prec, recall, accr = sess.run([merged, accuracy, final_state, pre_op, rec_op, acc_op], feed_dict=feed)
 				val_acc.append(batch_acc)
 			print("Val acc: {:.3f}".format(np.mean(val_acc)))
-			logStr = 'Itr ' + str(e+1) + ' Val acc: ' + "{:.3f}".format(np.mean(val_acc)) + '\n'
+			print ("Acc: ",str(accr) , "Precision: ", str(prec), "Recall: ", str(recall))
+			logStr = 'Itr ' + str(e+1) + ' Val acc: ' + str(accr) + " Val Precision: " + str(prec) + "Val Recall: "+ str(recall) +'\n'
 			fpLog.write(logStr)
+			fpLog.flush()
 
 			test_writer.add_summary(summary, iteration)
 			saver.save(sess, "checkpoints/sentiment.ckpt")
@@ -259,6 +267,7 @@ with open('./data/train.pkl', 'rb') as train:
 		test_acc = []
 		with tf.Session() as sess:
 			saver.restore(sess, "checkpoints/sentiment.ckpt")
+			sess.run(tf.local_variables_initializer())
 			if memoryNDtype == 'blstm':
 				stateFwVal = sess.run(initialStateFw)
 				stateBwVal = sess.run(initialStateBw)
@@ -268,7 +277,7 @@ with open('./data/train.pkl', 'rb') as train:
 							keep_prob: 1,
 							initialStateFw: stateFwVal,
 							initialStateBw: stateBwVal}
-					batch_acc, test_state = sess.run([accuracy, final_state[0], final_state[1]], feed_dict=feed)
+					batch_acc, test_state,prec, recall, accr = sess.run([accuracy, final_state[0], final_state[1],pre_op,rec_op, acc_op], feed_dict=feed)
 					test_acc.append(batch_acc)
 			else:
 				test_state = sess.run(cell.zero_state(batchSize, tf.float32))
@@ -277,9 +286,10 @@ with open('./data/train.pkl', 'rb') as train:
 					labels_: y[:],
 					keep_prob: 1,
 					initial_state: test_state}
-					batch_acc, test_state = sess.run([accuracy, final_state], feed_dict=feed)
+					batch_acc, test_state, prec, recall, accr = sess.run([accuracy, final_state, pre_op,rec_op, acc_op], feed_dict=feed)
 					test_acc.append(batch_acc)
-				print("Test accuracy: {:.3f}".format(np.mean(test_acc)))
-				logStr = 'Test acc: ' + "{:.3f}".format(np.mean(test_acc)) + '\n'
-				fpLog.write(logStr)
+			print("Test accuracy: {:.3f}".format(np.mean(test_acc)))
+			print ("Acc: ",str(accr) , "Precision: ", str(prec), "Recall: ", str(recall))
+			logStr = 'Test acc: ' + str(accr) + " Test Precision: " + str(prec) + "Test Recall: "+ str(recall) +'\n'
+			fpLog.write(logStr)
 		fpLog.close()
