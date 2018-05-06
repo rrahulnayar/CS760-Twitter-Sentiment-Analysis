@@ -290,7 +290,7 @@ with open('./data/train.pkl', 'rb') as train:
 							keep_prob: 1,
 							initialStateFw: stateFwVal,
 							initialStateBw: stateBwVal}
-					batch_acc, test_state,prec, recall, accr = sess.run([accuracy, final_state[0], final_state[1],pre_op,rec_op, acc_op], feed_dict=feed)
+					batch_acc, stateFwVal, stateBwVal,prec, recall, accr = sess.run([accuracy, final_state[0], final_state[1],pre_op,rec_op, acc_op], feed_dict=feed)
 					test_acc.append(batch_acc)
 			else:
 				test_state = sess.run(cell.zero_state(batchSize, tf.float32))
