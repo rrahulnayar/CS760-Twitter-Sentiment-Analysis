@@ -29,26 +29,26 @@ N = len(Y)#total rows
 X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, shuffle=False)
 X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, test_size=0.5, shuffle=False)
 trN,vlN,tsN = len(y_train),len(y_val),len(y_test)
+print('lengths: ',trN,vlN,tsN)
+
+# In[ ]:
+
+print('classes: ',Y.unique())
 
 
 # In[ ]:
 
-Y.unique()
-
-
-# In[ ]:
-
-model = SVC(verbose=True)#using rbf kernel, tol = 1e-3(default)
+model = SVC(verbose=True, probability=True, kernel='linear')#using rbf kernel, tol = 1e-3(default)
 model.fit(X_train,y_train)
 
-
+print(model.get_params(deep=True))
 # In[ ]:
 
 h_val = pd.Series(model.predict(X_val), X_val.index)#.reindex(X_val.index)
 val = pd.concat([h_val,y_val],axis=1)
 val = val.rename(columns={0:'Predicted', 'Sentiment':'Actual'})
 val.to_csv('../data/Validation_set_predict_custom_features_svm.csv',index=False)
-h_test = pd.Series(model.predict(X_val), X_test.index)#.reindex(X_val.index)
+h_test = pd.Series(model.predict(X_test), X_test.index)#.reindex(X_val.index)
 test = pd.concat([h_test,y_test],axis=1)
 test = test.rename(columns={0:'Predicted', 'Sentiment':'Actual'})
 test.to_csv('../data/Test_set_predict_custom_features_svm.csv',index=False)
@@ -59,7 +59,7 @@ TP = len(val[(val.Predicted=='Y') & (val.Actual=='Y')])
 FP = len(val[(val.Predicted=='Y') & (val.Actual=='N')])
 TN = len(val[(val.Predicted=='N') & (val.Actual=='N')])
 FN = len(val[(val.Predicted=='N') & (val.Actual=='Y')])
-TP,TN,FP,FN
+print('counts: ',TP,TN,FP,FN)
 
 
 # In[ ]:
@@ -69,4 +69,7 @@ Rc = TP/(TP+FN)
 F1 = 2*Pr*Rc/(Pr+Rc)
 print(Pr,Rc,F1)
 #0.6595561918396564 0.7877906976744186 0.7179926751344191
+
+prob_test = model.predict_proba(X_test)
+pd.DataFrame(prob_test).to_csv('../data/Test_Confidence_Custom_features.csv',index=False)
 
